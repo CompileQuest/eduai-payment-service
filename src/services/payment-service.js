@@ -31,6 +31,19 @@ class PaymentService {
             throw new Error(`Payment intent creation failed: ${err.message}`);
         }
     }
+
+    async getAllPayments() {
+        try {
+            console.log("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii");
+
+            const payments = await this.repository.fetchAllPayments();
+            console.log("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii");
+
+            return payments;
+        } catch (err) {
+            throw new Error('Error fetching payment records');
+        }
+    }
 }
 
 module.exports = PaymentService;

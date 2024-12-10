@@ -22,4 +22,21 @@ module.exports = (app) => {
             next(err);
         }
     });
+
+    app.get('/payments', async (req, res, next) => {
+        try {
+            const paymentService = new PaymentService();
+            console.log("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii");
+            const payments = await service.getAllPayments();
+            return res.status(200).json({
+                message: 'Payment records retrieved successfully',
+                data: payments
+            });
+        } catch (err) {
+            next(err); // Forward errors to error handler middleware
+        }
+    });
+    
+
+
 };
