@@ -21,6 +21,21 @@ class PaymentRepository {
             throw new Error(`Unable to update payment intent status: ${err.message}`);
         }
     }
+
+    async fetchAllPayments() {
+        try {
+            console.log("Fetching all payment records...");
+
+            // Corrected reference to the model
+            const payments = await PaymentIntentModel.find(); 
+
+            console.log("Fetched payment records successfully.");
+            return payments;
+        } catch (err) {
+            console.error('Error fetching payment records:', err);
+            throw new Error('Unable to retrieve payments from database');
+        }
+    }
 }
 
 module.exports = PaymentRepository;
