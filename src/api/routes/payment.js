@@ -2,7 +2,33 @@ const PaymentService = require('../../services/payment-service');
 
 module.exports = (app) => {
     const service = new PaymentService();
+    app.post('/create-checkout-session', async (req, res, next) => {
 
+        try {
+
+            const { userId, courseId, priceId } = req.body;
+
+
+            if (!userId || !courseId || !priceId) {
+
+                return res.status(400).json({ message: 'Missing required fields' });
+
+            }
+
+
+            const session = await service.CreateCheckoutSession(userId, courseId, priceId);
+
+
+            res.redirect(303, session.url); // Redirect to the Stripe Checkout page
+console.log("session.url",session.url);
+        } catch (err) {
+
+            next(err);
+
+        }
+
+    });
+ //////////////
     app.post('/create-payment-intent', async (req, res, next) => {
         try {
             const { userId, courseId, amount } = req.body;
