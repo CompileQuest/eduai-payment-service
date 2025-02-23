@@ -143,74 +143,11 @@ class PaymentService {
         }
     }
 
-    async getAllCourses() {
+    async getAllCourses(page, limit) {
         try {
-            return await this.courseRepository.getAllCourses();
+            return await this.courseRepository.getAllCourses(page, limit);
         } catch (err) {
             throw new Error(`Failed to fetch courses: ${err.message}`);
-        }
-    }
-
-    async updateCourse(courseId, courseName, price) {
-        try {
-            const course = await this.courseRepository.getCourseById(courseId);
-            if (!course) {
-                throw new Error('Course not found');
-            }
-
-            // Update product in Stripe
-            await stripe.products.update(course.stripe_product_id, {
-                name: courseName,
-            });
-
-            // Update price in Stripe (create new price as prices can't be updated)
-            const newPrice = await stripe.prices.create({
-                product: course.stripe_product_id,
-                unit_amount: price * 100,
-                currency: 'usd',
-            });
-
-            // Archive old price
-            await stripe.prices.update(course.stripe_price_id, {
-                active: false
-            });
-
-            // Update course in database
-            const updatedCourse = await this.courseRepository.updateCourse(courseId, {
-                name: courseName,
-                stripe_price_id: newPrice.id,
-                price: price
-            });
-
-            return updatedCourse;
-        } catch (err) {
-            throw new Error(`Course update failed: ${err.message}`);
-        }
-    }
-
-    async deleteCourse(courseId) {
-        try {
-            const course = await this.courseRepository.getCourseById(courseId);
-            if (!course) {
-                throw new Error('Course not found');
-            }
-
-            // Archive product in Stripe
-            await stripe.products.update(course.stripe_product_id, {
-                active: false
-            });
-
-            // Archive price in Stripe
-            await stripe.prices.update(course.stripe_price_id, {
-                active: false
-            });
-
-            // Delete from database
-            await this.courseRepository.deleteCourse(courseId);
-
-            return { message: 'Course deleted successfully' };
-        } catch (err) {
-            throw new Error(`Course deletion failed: ${err.message}`);
         }
     }
 }
