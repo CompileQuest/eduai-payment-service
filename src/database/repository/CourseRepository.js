@@ -18,31 +18,30 @@ class CourseRepository {
         }
     }
 
-    async getAllCourses() {
+    async getAllCourses(page = 1, limit = 10) {
         try {
-            return await CourseModel.find();
+            const skip = (page - 1) * limit;
+            
+            const courses = await CourseModel.find()
+                .skip(skip)
+                .limit(limit)
+                .sort({ created_at: -1 });  // Sort by creation date, newest first
+            
+            const totalCourses = await CourseModel.countDocuments();
+            const totalPages = Math.ceil(totalCourses / limit);
+
+            return {
+                courses,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalItems: totalCourses,
+                    hasNext: page < totalPages,
+                    hasPrev: page > 1
+                }
+            };
         } catch (err) {
             throw new Error(`Unable to fetch courses: ${err.message}`);
-        }
-    }
-
-    async updateCourse(courseId, courseData) {
-        try {
-            return await CourseModel.findByIdAndUpdate(
-                courseId,
-                courseData,
-                { new: true }
-            );
-        } catch (err) {
-            throw new Error(`Unable to update course: ${err.message}`);
-        }
-    }
-
-    async deleteCourse(courseId) {
-        try {
-            return await CourseModel.findByIdAndDelete(courseId);
-        } catch (err) {
-            throw new Error(`Unable to delete course: ${err.message}`);
         }
     }
 }

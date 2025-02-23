@@ -107,13 +107,25 @@ console.log("session.url",session.url);
         }
     });
 
-    // Get all courses
+    // Get all courses with pagination
     app.get('/courses', async (req, res, next) => {
         try {
-            const courses = await service.getAllCourses();
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+
+            // Validate pagination parameters
+            if (page < 1 || limit < 1 || limit > 100) {
+                return res.status(400).json({
+                    message: 'Invalid pagination parameters. Page must be ≥ 1 and limit between 1 and 100'
+                });
+            }
+
+            const result = await service.getAllCourses(page, limit);
+            
             return res.json({
                 message: 'Courses fetched successfully',
-                data: courses
+                data: result.courses,
+                pagination: result.pagination
             });
         } catch (err) {
             next(err);
