@@ -107,4 +107,64 @@ console.log("session.url",session.url);
         }
     });
 
+    // Get all courses
+    app.get('/courses', async (req, res, next) => {
+        try {
+            const courses = await service.getAllCourses();
+            return res.json({
+                message: 'Courses fetched successfully',
+                data: courses
+            });
+        } catch (err) {
+            next(err);
+        }
+    });
+
+    // Get single course
+    app.get('/courses/:id', async (req, res, next) => {
+        try {
+            const course = await service.courseRepository.getCourseById(req.params.id);
+            if (!course) {
+                return res.status(404).json({ message: 'Course not found' });
+            }
+            return res.json({
+                message: 'Course fetched successfully',
+                data: course
+            });
+        } catch (err) {
+            next(err);
+        }
+    });
+
+    // Update course
+    app.put('/courses/:id', async (req, res, next) => {
+        try {
+            const { courseName, price } = req.body;
+            
+            if (!courseName || !price) {
+                return res.status(400).json({ message: 'Missing required fields' });
+            }
+
+            const updatedCourse = await service.updateCourse(req.params.id, courseName, price);
+            return res.json({
+                message: 'Course updated successfully',
+                data: updatedCourse
+            });
+        } catch (err) {
+            next(err);
+        }
+    });
+
+    // Delete course
+    app.delete('/courses/:id', async (req, res, next) => {
+        try {
+            await service.deleteCourse(req.params.id);
+            return res.json({
+                message: 'Course deleted successfully'
+            });
+        } catch (err) {
+            next(err);
+        }
+    });
+
 };
