@@ -36,6 +36,11 @@ class PaymentRepository {
             throw new Error('Unable to retrieve payments from database');
         }
     }
+
+///////////update payment intent status/////////
+
+
+
 }
 
 module.exports = PaymentRepository;
