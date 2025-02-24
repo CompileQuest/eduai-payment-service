@@ -78,10 +78,8 @@ class PaymentService {
 
     async getAllPayments() {
         try {
-            console.log("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii");
 
             const payments = await this.repository.fetchAllPayments();
-            console.log("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii");
 
             return payments;
         } catch (err) {
@@ -119,6 +117,7 @@ class PaymentService {
 
     async handleWebhookEvent(event) {
         try {
+           // console.log("event", event);
             switch (event.type) {
                 case 'checkout.session.completed':
                     const session = event.data.object;
@@ -127,7 +126,15 @@ class PaymentService {
                         'succeeded'
                     );
                     break;
-
+                case 'checkout.session.expired':
+                    const sessionExpired = event.data.object;
+                    await this.repository.UpdatePaymentIntentStatus(
+                        sessionExpired.id,
+                        'expired'
+                        
+                    );
+                    console.log("sessionExpired", sessionExpired);
+                    break;
                 case 'payment_intent.payment_failed':
                     const paymentIntent = event.data.object;
                     await this.repository.UpdatePaymentIntentStatus(

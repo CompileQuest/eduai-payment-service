@@ -1,12 +1,13 @@
 {
-  "name": "user-management-service",
+  "name": "payment-management-service",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "cross-env NODE_ENV=dev nodemon src/index.js",
-    "start": "cross-env NODE_ENV=prod node src/index.js"
+    "dev": "cross-env NODE_ENV=dev node scripts/dev.js",
+    "start": "cross-env NODE_ENV=prod node src/index.js",
+    "tunnel": "lt --port 8000 --subdomain mywebhookeduai"
   },
   "author": "",
   "license": "ISC",
@@ -24,6 +25,8 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3"
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "localtunnel": "^2.0.2"
   }
 }

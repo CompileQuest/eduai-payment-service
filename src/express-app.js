@@ -1,8 +1,12 @@
 const express = require('express');
 const cors  = require('cors');
+const dotenv = require('dotenv');
 const { PaymentRouter } = require('./api/routes');
 const HandleErrors = require('./utils/error-handler')
 
+// Load environment variables based on NODE_ENV
+const envFile = process.env.NODE_ENV ? `.env.${process.env.NODE_ENV}` : '.env.dev';
+dotenv.config({ path: envFile });
 
 module.exports = async (app) => {
 
