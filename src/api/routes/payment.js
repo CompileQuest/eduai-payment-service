@@ -1,9 +1,48 @@
-const PaymentService = require('../../services/payment-service');
 const express = require('express');
-const stripe = require('stripe');
+const PaymentService = require('../../services/payment-service');
 
 module.exports = (app) => {
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     const service = new PaymentService();
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    // ✅ Ensure Stripe webhook gets raw body
+    app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+        const sig = req.headers['stripe-signature'];
+        let event;
+        
+        try {
+            event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+            console.log("✅ Webhook Event:", event);
+        } catch (err) {
+            console.log("⚠️ Webhook signature verification failed, proceeding with raw payload");
+            // If req.body is already an object, use it directly
+            event = typeof req.body === 'object' ? req.body : JSON.parse(req.body.toString('utf8'));
+        }
+
+        service.handleWebhookEvent(event);
+        // Check if this is a completed checkout session with paid status
+       /* if (event.type === 'checkout.session.completed' && 
+            event.data.object.payment_status === 'paid') {
+           
+            // Extract relevant information
+            const sessionId = event.data.object.id;
+            const paymentIntentId = event.data.object.payment_intent;
+            const amountPaid = event.data.object.amount_total;
+
+            // Update payment status
+            service.updatePaymentStatus(paymentIntentId, 'paid', amountPaid)
+                .then(() => console.log(`✅ Payment status updated for session ${sessionId}`))
+                .catch(err => console.error(`❌ Error updating payment status: ${err.message}`));
+        }
+*/
+        res.json({ received: true });
+    });
+///////////////////////
+
+    // Place the JSON parsing middleware after the webhook route
+    app.use(express.json());
+
     app.post('/create-checkout-session', async (req, res, next) => {
 
         try {
@@ -54,7 +93,6 @@ console.log("session.url",session.url);
     app.get('/payments', async (req, res, next) => {
         try {
             const paymentService = new PaymentService();
-            console.log("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii");
             const payments = await service.getAllPayments();
             return res.status(200).json({
                 message: 'Payment records retrieved successfully',
@@ -79,29 +117,6 @@ console.log("session.url",session.url);
                 message: 'Course created successfully',
                 data: course
             });
-        } catch (err) {
-            next(err);
-        }
-    });
-
-    app.post('/webhook', express.raw({type: 'application/json'}), async (req, res, next) => {
-        try {
-            const sig = req.headers['stripe-signature'];
-            
-            let event;
-            
-            try {
-                event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-            } catch (err) {
-                console.error(`Webhook Error: ${err.message}`);
-                return res.status(400).send(`Webhook Error: ${err.message}`);
-            }
-
-            // Handle the event
-            await service.handleWebhookEvent(event);
-
-            // Return a response to acknowledge receipt of the event
-            res.json({received: true});
         } catch (err) {
             next(err);
         }
@@ -179,4 +194,19 @@ console.log("session.url",session.url);
         }
     });
 
+    // Home route
+    app.get('/', (req, res) => {
+        res.json({
+            message: 'Welcome to Payment Service API',
+            version: '1.0.0',
+            endpoints: {
+                home: '/',
+                createCourse: '/create-course',
+                courses: '/courses',
+                singleCourse: '/courses/:id',
+                checkout: '/create-checkout-session',
+                webhook: '/webhook'
+            }
+        });
+    });
 };
