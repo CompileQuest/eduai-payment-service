@@ -1,60 +1,64 @@
-const PaymentIntentModel = require('../models/PaymentIntent');
 
-class PaymentRepository {
-    async CreatePaymentIntent(paymentData) {
-        try {
-            const newPaymentIntent = new PaymentIntentModel(paymentData);
-            return await newPaymentIntent.save();
-        } catch (err) {
-            throw new Error(`Unable to create payment intent: ${err.message}`);
+    const PaymentModel = require('../models/PaymentIntent');
+
+    class PaymentRepository {
+        async create(paymentData) {
+            try {
+                const payment = new PaymentModel(paymentData);
+                return await payment.save();
+            } catch (error) {
+                throw new Error(`Database Error: ${error.message}`);
+            }
         }
-    }
-
-    async UpdatePaymentIntentStatus(paymentIntentId, status) {
-        try {
-            return await PaymentIntentModel.findOneAndUpdate(
-                { payment_intent_id: paymentIntentId },
-                { status },
-                { new: true }
-            );
-        } catch (err) {
-            throw new Error(`Unable to update payment intent status: ${err.message}`);
+    
+        async findAll(page, limit) {
+            try {
+                const skip = (page - 1) * limit;
+                const [payments, total] = await Promise.all([
+                    PaymentModel.find()
+                        .skip(skip)
+                        .limit(limit)
+                        .sort({ created_at: -1 }),
+                    PaymentModel.countDocuments()
+                ]);
+    
+                return {
+                    payments,
+                    pagination: {
+                        currentPage: page,
+                        totalPages: Math.ceil(total / limit),
+                        totalItems: total,
+                        pageSize: limit
+                    }
+                };
+            } catch (error) {
+                throw new Error(`Database Error: ${error.message}`);
+            }
         }
-    }
 
-    async getAllPayments(page, limit) {
-        try {
-            console.log("Fetching all payment records with pagination...");
-    
-            const skip = (page - 1) * limit; // Calculate the number of documents to skip
-            const payments = await PaymentIntentModel.find()
-                .skip(skip)
-                .limit(limit)
-                .sort({ created_at: -1 }); // Sort by newest first
-    
-            const totalPayments = await PaymentIntentModel.countDocuments(); // Get total count
-    
-            console.log("Fetched payment records successfully.");
-            return {
-                payments,
-                pagination: {
-                    currentPage: page,
-                    totalPages: Math.ceil(totalPayments / limit),
-                    totalPayments,
-                    pageSize: limit
-                }
-            };
-        } catch (err) {
-            console.error('Error fetching payment records:', err);
-            throw new Error('Unable to retrieve payments from database');
+      
+        async UpdatePaymentIntentStatus(paymentIntentId, status) {
+            try {
+                return await PaymentModel.findOneAndUpdate(
+                    { payment_intent_id: paymentIntentId },
+                    { status },
+                    { new: true }
+                );
+            } catch (err) {
+                throw new Error(`Unable to update payment intent status: ${err.message}`);
+            }
         }
+       /* async updateStatus(paymentIntentId, status) {
+            try {
+                return await PaymentModel.findOneAndUpdate(
+                    { payment_intent_id: paymentIntentId },
+                    { status },
+                    { new: true }
+                );
+            } catch (error) {
+                throw new Error(`Database Error: ${error.message}`);
+            }
+        }*/
     }
     
-
-///////////update payment intent status/////////
-
-
-
-}
-
-module.exports = PaymentRepository;
+    module.exports = PaymentRepository;

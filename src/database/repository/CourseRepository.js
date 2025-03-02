@@ -1,49 +1,63 @@
 const CourseModel = require('../models/Course');
 
 class CourseRepository {
-    async createCourse(courseData) {
+    async create(courseData) {
         try {
-            const newCourse = new CourseModel(courseData);
-            return await newCourse.save();
-        } catch (err) {
-            throw new Error(`Unable to create course: ${err.message}`);
+            const course = new CourseModel(courseData);
+            return await course.save();
+        } catch (error) {
+            throw new Error(`Database Error: ${error.message}`);
         }
     }
 
-    async getCourseById(courseId) {
-        try {
-            return await CourseModel.findById(courseId);
-        } catch (err) {
-            throw new Error(`Unable to fetch course: ${err.message}`);
-        }
-    }
-
-    async getAllCourses(page = 1, limit = 10) {
+    async findAll(page, limit) {
         try {
             const skip = (page - 1) * limit;
-            
-            const courses = await CourseModel.find()
-                .skip(skip)
-                .limit(limit)
-                .sort({ created_at: -1 });  // Sort by creation date, newest first
-            
-            const totalCourses = await CourseModel.countDocuments();
-            const totalPages = Math.ceil(totalCourses / limit);
+            const [courses, total] = await Promise.all([
+                CourseModel.find()
+                    .skip(skip)
+                    .limit(limit)
+                    .sort({ created_at: -1 }),
+                CourseModel.countDocuments()
+            ]);
 
             return {
                 courses,
                 pagination: {
                     currentPage: page,
-                    totalPages,
-                    totalItems: totalCourses,
-                    hasNext: page < totalPages,
-                    hasPrev: page > 1
+                    totalPages: Math.ceil(total / limit),
+                    totalItems: total,
+                    pageSize: limit
                 }
             };
-        } catch (err) {
-            throw new Error(`Unable to fetch courses: ${err.message}`);
+        } catch (error) {
+            throw new Error(`Database Error: ${error.message}`);
+        }
+    }
+
+    async findById(id) {
+        try {
+            return await CourseModel.findById(id);
+        } catch (error) {
+            throw new Error(`Database Error: ${error.message}`);
+        }
+    }
+
+    async update(id, updateData) {
+        try {
+            return await CourseModel.findByIdAndUpdate(id, updateData, { new: true });
+        } catch (error) {
+            throw new Error(`Database Error: ${error.message}`);
+        }
+    }
+
+    async delete(id) {
+        try {
+            await CourseModel.findByIdAndDelete(id);
+        } catch (error) {
+            throw new Error(`Database Error: ${error.message}`);
         }
     }
 }
 
-module.exports = CourseRepository; 
+module.exports = CourseRepository;
