@@ -90,18 +90,30 @@ console.log("session.url",session.url);
         }
     });
 */
-    app.get('/payments', async (req, res, next) => {
-        try {
-            const paymentService = new PaymentService();
-            const payments = await service.getAllPayments();
-            return res.status(200).json({
-                message: 'Payment records retrieved successfully',
-                data: payments
+app.get('/payments', async (req, res, next) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        // Validate pagination parameters
+        if (page < 1 || limit < 1 || limit > 100) {
+            return res.status(400).json({
+                message: 'Invalid pagination parameters. Page must be ≥ 1 and limit between 1 and 100'
             });
-        } catch (err) {
-            next(err); // Forward errors to error handler middleware
         }
-    });
+
+        const result = await service.getAllPayments(page, limit);
+
+        return res.status(200).json({
+            message: 'Payment records retrieved successfully',
+            data: result.payments,
+            pagination: result.pagination
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
     
     app.post('/create-course', async (req, res, next) => {
         try {
