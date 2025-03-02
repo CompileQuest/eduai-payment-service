@@ -76,16 +76,14 @@ class PaymentService {
         }
     }
 
-    async getAllPayments() {
+    async getAllPayments(page, limit) {
         try {
-
-            const payments = await this.repository.fetchAllPayments();
-
-            return payments;
+            return await this.repository.getAllPayments(page, limit);
         } catch (err) {
-            throw new Error('Error fetching payment records');
+            throw new Error(`Error fetching payment records: ${err.message}`);
         }
     }
+    
 
     async createCourseWithPrice(courseName, price) {
         try {
