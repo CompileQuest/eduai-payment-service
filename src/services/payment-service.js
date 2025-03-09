@@ -141,7 +141,25 @@
                 throw new Error(`Get Payments Error: ${error.message}`);
             }
         }
+
+        // ✅ Get payments for a specific user
+        async getPaymentsByUserId(userId) {
+            try {
+                return await this.paymentRepository.findByUserId(userId);
+            } catch (error) {
+                throw new Error(`Get Payments by User ID Error: ${error.message}`);
+            }
+        }
     
+// ✅ Get successful payments for a specific course
+        async getSuccessfulPaymentsByCourse(courseId) {
+            try {
+                return await this.paymentRepository.findSuccessfulPaymentsByCourse(courseId);
+            } catch (error) {
+                throw new Error(`Get Successful Payments Error: ${error.message}`);
+            }
+        }
+        
         async createCourse({ name, price }) {
             try {
                 this.validateRequiredFields({ name, price });
