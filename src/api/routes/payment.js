@@ -55,6 +55,28 @@ module.exports = (app) => {
         }
     });
 
+
+// ✅ Get payments for a specific user
+app.get('/payments/user/:userId', async (req, res) => {
+    try {
+        const payments = await service.getPaymentsByUserId(req.params.userId);
+        res.status(200).json(payments);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+// ✅ Get successful payments for a specific course
+app.get('/courses/:id/successful-payments', async (req, res) => {
+    try {
+        const { id: courseId } = req.params;
+        const result = await service.getSuccessfulPaymentsByCourse(courseId);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+
     // Course routes
     app.post('/courses', async (req, res) => {
         try {
