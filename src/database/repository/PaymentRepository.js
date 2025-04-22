@@ -10,7 +10,13 @@
                 throw new Error(`Database Error: ${error.message}`);
             }
         }
-    
+    async findAllpaymento() {
+            try {
+                return await PaymentModel.find().sort({ created_at: -1 });
+            } catch (error) {
+                throw new Error(`Database Error: ${error.message}`);
+            }
+        }
         async findAll(page, limit) {
             try {
                 const skip = (page - 1) * limit;

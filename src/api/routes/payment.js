@@ -45,6 +45,20 @@ module.exports = (app) => {
         }
     
     );
+    app.get('/', (req, res) => {
+        res.send('🎉 Welcome to the Payments Service!');
+    });
+    
+    //get all payments
+    app.get('/paymentsAll', async (req, res) => {
+        try {
+            const payments = await service.getallPayments(req.query);
+            res.status(200).json(payments);
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    });
+    // ✅ Get all payments with pagination
 
     app.get('/payments', async (req, res) => {
         try {

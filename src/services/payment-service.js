@@ -50,6 +50,7 @@
 
 
 
+
         
         async createCheckoutSession({ userId, courseId, success_url, cancel_url }) {
 
@@ -132,7 +133,17 @@
             }
     
         }
-    
+        async getallPayments(_) {
+               try {
+                    return await this.paymentRepository.findAllpaymento();
+                } catch (error) {
+                    throw new Error(`Get All Payments Error: ${error.message}`);
+                }  
+
+
+
+        }
+    ///////////////////////
         async getPayments({ page = 1, limit = 10 }) {
             try {
                 this.validatePagination(page, limit);
