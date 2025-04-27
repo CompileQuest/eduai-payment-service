@@ -1,93 +1,68 @@
-const { createLogger, transports } = require('winston');
 const { AppError } = require('./app-errors');
+const chalk = require('chalk'); // For colored terminal output
 
-
-const LogErrors = createLogger({
-    transports: [
-      new transports.Console(),
-      new transports.File({ filename: 'app_error.log' })
-    ]
-  });
-    
-
-  class ErrorLogger {
-    constructor() {}
+class ErrorLogger {
+    constructor() { }
 
     async logError(err) {
-        // Capture the current date and time for the log entry
-        const timestamp = new Date().toISOString();
-        
-        console.log('==================== Start Error Logger ===============');
-        console.log(`Error Type: ${err.name}`); // Log the type of the error (e.g., TypeError)
-        console.log('\n')
-        console.log(`=====Error Message Start Here=====`); // Log the message associated with the error
-        console.log('\n')
-        console.log(`Error Message: ${err.message}`); // Log the message associated with the error
-        console.log('\n')
-        console.log(`=====Error Message ends Here======`); // Log the message associated with the error
-        console.log('\n')
-        console.log(`===========Error stack Starts here =========`)
-        console.log('\n')
-        console.log(`Error Stack: ${err.stack}`); // Log the stack trace for more details
-        console.log('\n')
-        console.log(`===========Error stack Ends here =========`)
-        console.log('\n')
+        // Define colors for different error types
+        const errorColors = {
+            Error: chalk.red.bold, // Red for generic errors
+            TypeError: chalk.yellow.bold, // Yellow for type errors
+            AppError: chalk.blue.bold, // Blue for custom AppError
+            default: chalk.white.bold, // White for other errors
+        };
 
+        // Get the color for the current error type
+        const color = errorColors[err.name] || errorColors.default;
 
-        console.log('==================== End Error Logger ===============');
-        
-        // This is a winston loger can use it or get rid of it for now i prefer mine the custome format i in the above code
-        LogErrors.log({
-            private: true,
-            level: 'error',
-            message: `${timestamp} - Error Type: ${err.name}, Message: ${err.message}, Stack: ${err.stack}`
-        });
-
-        return false;
+        // Print the error in a clean, colorful format
+        console.log(chalk.bgRed('🚨 [Error Logger] ===================='));
+        console.log(color(`📛 Error: ${err.name}`));
+        console.log(color(`📛 status Code: ${err.statusCode}`));
+        console.log(color(`📝 Message: ${err.message}`));
+        console.log(color(`🔍 Stack: ${err.stack}`));
+        console.log(chalk.bgRed('======================================'));
     }
 
     isTrustError(error) {
-        if (error instanceof AppError) {
-            return error.isOperational;
-        } else {
-            return false;
-        }
+        // Check if the error is an instance of AppError
+        return error instanceof AppError;
     }
 }
 
-const ErrorHandler = async(err,req,res,next) => {
-    
+const ErrorHandler = async (err, req, res, next) => {
     const errorLogger = new ErrorLogger();
 
-    process.on('uncaughtException', (reason, promise) => {
-        console.log(reason, 'UNHANDLED');
-        throw reason; // need to take care
-    })
-
+    // Handle uncaught exceptions
     process.on('uncaughtException', (error) => {
+        console.log(chalk.bgRed('🛑 [Uncaught Exception]'), error);
         errorLogger.logError(error);
-        if(errorLogger.isTrustError(err)){
-            //process exist // need restart
+        if (!errorLogger.isTrustError(error)) {
+            process.exit(1); // Exit process for untrusted errors
         }
-    })
-    
-    // console.log(err.description, '-------> DESCRIPTION')
-    // console.log(err.message, '-------> MESSAGE')
-    // console.log(err.name, '-------> NAME')
-    if(err){
+    });
+
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+        console.log(chalk.bgRed('🛑 [Unhandled Rejection]'), reason);
+        throw reason; // Re-throw to handle it in the uncaughtException handler
+    });
+
+    // Handle the error
+    if (err) {
         await errorLogger.logError(err);
-        if(errorLogger.isTrustError(err)){
-            if(err.errorStack){
-                const errorDescription = err.errorStack;
-                return res.status(err.statusCode).json({'message': errorDescription})
-            }
-            return res.status(err.statusCode).json({'message': err.message })
-        }else{
-            //process exit // terriablly wrong with flow need restart
+        if (errorLogger.isTrustError(err)) {
+            // Trusted error: Send response to client
+            return res.status(err.statusCode).json({ message: err.description });
+        } else {
+            // Untrusted error: Exit process
+            console.log(chalk.bgRed('🛑 Fatal error encountered. Shutting down...'));
+            process.exit(1);
         }
-        return res.status(err.statusCode).json({'message': err.message})
     }
+
     next();
-}
+};
 
 module.exports = ErrorHandler;

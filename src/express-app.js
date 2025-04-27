@@ -1,5 +1,5 @@
 const express = require('express');
-const cors  = require('cors');
+const cors = require('cors');
 const dotenv = require('dotenv');
 const { PaymentRouter } = require('./api/routes');
 const HandleErrors = require('./utils/error-handler')
@@ -10,9 +10,12 @@ dotenv.config({ path: envFile });
 
 module.exports = async (app) => {
 
-    app.use(express.json({ limit: '1mb'}));
-    app.use(express.urlencoded({ extended: true, limit: '1mb'}));
-    app.use(cors());
+    app.use(express.json({ limit: '1mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+    app.use(cors({
+        origin: 'http://localhost:3000',
+        credentials: true, // if you're using cookies, sessions, or auth headers
+    }));
     app.use(express.static(__dirname + '/public'))
 
     // app.use((req,res,next)=>{
@@ -22,12 +25,12 @@ module.exports = async (app) => {
     // Listen to Events
     // appEvent(app);
 
-  
+
 
     //api
     PaymentRouter(app);
 
     // error handling
     app.use(HandleErrors);
-    
+
 }
