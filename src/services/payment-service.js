@@ -234,6 +234,43 @@
                 throw new Error(`Delete Course Error: ${error.message}`);
             }
         }
+
+
+        ///////////////////////////
+        // Add these methods to the PaymentService class
+
+async getPaymentsByStatus(status) {
+    try {
+        // Validate the status parameter
+        this.validatePaymentStatus(status);
+        
+        return await this.paymentRepository.findByStatus(status);
+    } catch (error) {
+        throw new Error(`Get Payments by Status Error: ${error.message}`);
+    }
+}
+
+async getPaymentsByStatusPaginated({ page = 1, limit = 10 }, status) {
+    try {
+        // Validate pagination parameters
+        this.validatePagination(page, limit);
+        
+        // Validate the status parameter
+        this.validatePaymentStatus(status);
+        
+        return await this.paymentRepository.findByStatusPaginated(page, limit, status);
+    } catch (error) {
+        throw new Error(`Get Paginated Payments by Status Error: ${error.message}`);
+    }
+}
+
+// Add this helper method to validate status
+validatePaymentStatus(status) {
+    const validStatuses = ['succeeded', 'pending', 'failed', 'expired', 'created'];
+    if (!validStatuses.includes(status)) {
+        throw new Error(`Invalid payment status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+    }
+}
     
         // Private methods
       /*  async handleWebhookEvent(event) {
