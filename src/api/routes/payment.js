@@ -136,4 +136,27 @@ app.get('/courses/:id/successful-payments', async (req, res) => {
             res.status(400).json({ error: error.message });
         }
     });
+    //////////////////////////
+// Get all payments filtered by status (non-paginated)
+app.get('/paymentsAll/status/:status', async (req, res) => {
+    try {
+        const { status } = req.params;
+        const payments = await service.getPaymentsByStatus(status);
+        res.status(200).json(payments);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get all payments with pagination filtered by status
+app.get('/payments/status/:status', async (req, res) => {
+    try {
+        const { status } = req.params;
+        const result = await service.getPaymentsByStatusPaginated(req.query, status);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 };

@@ -75,6 +75,41 @@
                 throw new Error(`Unable to update payment intent status: ${err.message}`);
             }
         }
+// Add these methods to the PaymentRepository class
+
+async findByStatus(status) {
+    try {
+        return await PaymentModel.find({ status }).sort({ created_at: -1 });
+    } catch (error) {
+        throw new Error(`Database Error: ${error.message}`);
+    }
+}
+
+async findByStatusPaginated(page, limit, status) {
+    try {
+        const skip = (page - 1) * limit;
+        const [payments, total] = await Promise.all([
+            PaymentModel.find({ status })
+                .skip(skip)
+                .limit(limit)
+                .sort({ created_at: -1 }),
+            PaymentModel.countDocuments({ status })
+        ]);
+
+        return {
+            payments,
+            pagination: {
+                currentPage: page,
+                totalPages: Math.ceil(total / limit),
+                totalItems: total,
+                pageSize: limit
+            }
+        };
+    } catch (error) {
+        throw new Error(`Database Error: ${error.message}`);
+    }
+}
+
        /* async updateStatus(paymentIntentId, status) {
             try {
                 return await PaymentModel.findOneAndUpdate(
