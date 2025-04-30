@@ -2,7 +2,7 @@ const validateUrls = (req, res, next) => {
 
     const { success_url, cancel_url } = req.body;
 
-    
+
 
     try {
 
@@ -12,7 +12,7 @@ const validateUrls = (req, res, next) => {
 
         }
 
-        
+
 
         // Validate URL format
 
@@ -20,15 +20,15 @@ const validateUrls = (req, res, next) => {
 
         new URL(cancel_url);
 
-        
+
 
         next();
 
     } catch (error) {
 
-        res.status(400).json({ 
+        res.status(400).json({
 
-            error: 'Invalid URL format or missing URLs' 
+            error: 'Invalid URL format or missing URLs'
 
         });
 
@@ -37,4 +37,4 @@ const validateUrls = (req, res, next) => {
 };
 
 
-module.exports = validateUrls;
+export default validateUrls;

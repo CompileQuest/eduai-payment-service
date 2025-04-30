@@ -1,186 +1,175 @@
-
-const Stripe = require('stripe');
-const { PaymentRepository, CourseRepository } = require('../database');
-const { UnauthorizedError, APIError, AppError } = require('../utils/app-errors');
+import stripeClient from '../config/stripeClient.js'; // use preconfigured client
+import PaymentRepository from '../database/repository/PaymentRepository.js';
+import CourseRepository from '../database/repository/CourseRepository.js';
+import { STRIPE_WEBHOOK_SECRET } from '../config/index.js';
+import { APIError, AppError, InternalServerError, UnauthorizedError, NotFoundError } from '../utils/app-errors.js';
 class PaymentService {
     constructor() {
-        this.stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+        this.stripe = stripeClient; // use shared Stripe client
         this.paymentRepository = new PaymentRepository();
-        this.repository = new PaymentRepository();
         this.courseRepository = new CourseRepository();
-        this.endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+        this.endpointSecret = STRIPE_WEBHOOK_SECRET;
     }
 
     async handleWebhookEvent(event) {
         try {
+            const session = event.data.object;
             switch (event.type) {
                 case 'checkout.session.completed':
-                    const session = event.data.object;
-                    await this.repository.UpdatePaymentIntentStatus(
-                        session.id,
-                        'succeeded'
-                    );
+                    await this.paymentRepository.UpdatePaymentIntentStatus(session.id, 'succeeded');
                     break;
                 case 'checkout.session.expired':
-                    const sessionExpired = event.data.object;
-                    await this.repository.UpdatePaymentIntentStatus(
-                        sessionExpired.id,
-                        'expired'
-
-                    );
-                    console.log("sessionExpired", sessionExpired);
+                    await this.paymentRepository.UpdatePaymentIntentStatus(session.id, 'expired');
+                    console.log("sessionExpired", session);
                     break;
                 case 'payment_intent.payment_failed':
-                    const paymentIntent = event.data.object;
-                    await this.repository.UpdatePaymentIntentStatus(
-                        paymentIntent.id,
-                        'failed'
-                    );
+                    await this.paymentRepository.UpdatePaymentIntentStatus(session.id, 'failed');
                     break;
-
-                // Add more cases as needed
+                default:
+                    console.warn(`Unhandled event type: ${event.type}`);
             }
         } catch (err) {
-            console.log("signature lesa");
+            console.error("Error handling webhook event:", err);
         }
     }
 
-
-
-    // template for coding 
-    async createPaymentIntent(cousreId, instructorId, courseData) {
+    async createPaymentIntent(courseId, instructorId, courseData) {
         try {
-            // edit course 
-            const course = await this.courseRepository.findById(cousreId);
-            if (!course) {
-                throw new AppiError('Course not found');
-            }
-
-
-
-            // Validate the course belongs to the current user!!!
+            const course = await this.courseRepository.findById(courseId);
+            if (!course) throw new AppError('Course not found');
             if (course.instructor_id !== instructorId) {
                 throw new UnauthorizedError('You are not authorized to update this course');
             }
 
+            const editedCourse = await this.courseRepository.update(courseId, courseData);
+            if (!editedCourse) throw new AppError('Failed to update course');
+            return editedCourse;
+        } catch (error) {
+            if (error instanceof AppError) throw error;
+            throw new APIError('Failed to create payment intent', error.message);
+        }
+    }
 
+    async createCheckoutSession({ userId, courseId, success_url, cancel_url }) {
+        try {
+            // Validate required fields
+            this.validateRequiredFields({ userId, courseId, success_url, cancel_url });
+            this.validateUrls({ success_url, cancel_url });
 
-            const editedCourse = await this.courseRepository.update(cousreId, courseData);
-            if (!editedCourse) {
-                throw new AppiError('Failed to update course');
+            // Fetch course by courseId
+            const course = await this.paymentRepository.findByCourseId(courseId);
+            if (!course) {
+                throw new NotFoundError("Course not found", `Course ID: ${courseId} does not exist`);
             }
 
+            if (!course.stripe_price_id) {
+                throw new BadRequestError("Course price not configured", "Missing stripe_price_id on course");
+            }
 
+            // Create Stripe checkout session
+            const session = await this.stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: [
+                    {
+                        price: course.stripe_price_id,
+                        quantity: 1
+                    }
+                ],
+                mode: 'payment',
+                success_url: `${success_url}?session_id={CHECKOUT_SESSION_ID}`,
+                cancel_url,
+                metadata: {
+                    userId,
+                    courseId
+                }
+            });
 
-            return editedCourse;
+            // Persist payment intent to DB
+            await this.paymentRepository.createPaymentIntent({
+                payment_intent_id: session.id,
+                user_id: userId,
+                course_id: courseId,
+                amount: session.amount_total ? session.amount_total / 100 : course.price,
+                currency: session.currency || course.currency || 'usd',
+                status: session.payment_status || 'created'
+            });
+
+            return session;
 
         } catch (error) {
             if (error instanceof AppError) {
                 throw error;
             }
-
-            throw new APIError('Failed to create payment intent', error.message);
+            throw new InternalServerError("Failed to create checkout session", error.message);
         }
     }
 
 
-
-
-
-
-
-    async createCheckoutSession({ userId, courseId, success_url, cancel_url }) {
+    async createCourse(courseId, name, price, thumbnail_url) {
+        let stripe_product_id = null;
+        let stripe_price_id = null;
 
         try {
+            // Check for duplicate course
+            const existingCourse = await this.paymentRepository.findByCourseId(courseId);
+            if (existingCourse) {
+                throw new ConflictError("Course with this ID already exists.");
+            }
 
-            // Validate all required fields
+            // 1. Create Stripe product
+            const product = await this.stripe.products.create({
+                name,
+                images: thumbnail_url ? [thumbnail_url] : []
+            }); stripe_product_id = product.id;
 
-            this.validateRequiredFields({
+            // 2. Create Stripe price
+            const stripePrice = await this.stripe.prices.create({
+                product: stripe_product_id,
+                unit_amount: price * 100,
+                currency: 'usd',
+            });
+            stripe_price_id = stripePrice.id;
 
-                userId,
-
+            // 3. Create course in the database
+            const createdCourse = await this.paymentRepository.createCourse(
                 courseId,
+                name,
+                price,
+                thumbnail_url,
+                stripe_price_id,
+                stripe_product_id
+            );
 
-                success_url,
+            if (!createdCourse) {
+                throw new InternalServerError("Failed to create course in the database.");
+            }
 
-                cancel_url
-
-            });
-
-
-
-            // Validate URLs
-
-            this.validateUrls({ success_url, cancel_url });
-
-
-            const course = await this.courseRepository.findById(courseId);
-
-            if (!course) throw new Error('Course not found');
-
-            if (!course.stripe_price_id) throw new Error('Course price not configured');
-
-
-            const session = await this.stripe.checkout.sessions.create({
-
-                payment_method_types: ['card'],
-
-                line_items: [{
-
-                    price: course.stripe_price_id,
-
-                    quantity: 1,
-
-                }],
-
-                mode: 'payment',
-
-                success_url: `${success_url}?session_id={CHECKOUT_SESSION_ID}`,
-
-                cancel_url: cancel_url,
-
-                metadata: { userId, courseId }
-
-            });
-
-
-            await this.paymentRepository.create({
-
-                payment_intent_id: session.id,
-
-                user_id: userId,
-
-                course_id: courseId,
-
-                amount: session.amount_total / 100,
-
-                currency: session.currency,
-
-                status: session.payment_status
-
-            });
-
-
-            return session;
-
+            return createdCourse;
         } catch (error) {
+            // Rollback if Stripe product or price was created but DB creation failed
+            if (stripe_price_id) {
+                await this.stripe.prices.update(stripe_price_id, { active: false }).catch(() => { });
+            }
+            if (stripe_product_id) {
+                await this.stripe.products.update(stripe_product_id, { active: false }).catch(() => { });
+            }
 
-            throw new Error(`Checkout Session Error: ${error.message}`);
+            if (error instanceof AppError) {
+                throw error;
+            }
 
+            throw new InternalServerError("Unexpected error during course creation", error.message);
         }
-
     }
-    async getallPayments(_) {
+
+    async getallPayments() {
         try {
             return await this.paymentRepository.findAllpaymento();
         } catch (error) {
             throw new Error(`Get All Payments Error: ${error.message}`);
         }
-
-
-
     }
-    ///////////////////////
+
     async getPayments({ page = 1, limit = 10 }) {
         try {
             this.validatePagination(page, limit);
@@ -190,7 +179,6 @@ class PaymentService {
         }
     }
 
-    // ✅ Get payments for a specific user
     async getPaymentsByUserId(userId) {
         try {
             return await this.paymentRepository.findByUserId(userId);
@@ -199,7 +187,6 @@ class PaymentService {
         }
     }
 
-    // ✅ Get successful payments for a specific course
     async getSuccessfulPaymentsByCourse(courseId) {
         try {
             return await this.paymentRepository.findSuccessfulPaymentsByCourse(courseId);
@@ -208,27 +195,7 @@ class PaymentService {
         }
     }
 
-    async createCourse({ name, price }) {
-        try {
-            this.validateRequiredFields({ name, price });
 
-            const product = await this.stripe.products.create({ name });
-            const stripePrice = await this.stripe.prices.create({
-                product: product.id,
-                unit_amount: price * 100,
-                currency: 'usd'
-            });
-
-            return await this.courseRepository.create({
-                name,
-                stripe_product_id: product.id,
-                stripe_price_id: stripePrice.id,
-                price
-            });
-        } catch (error) {
-            throw new Error(`Create Course Error: ${error.message}`);
-        }
-    }
 
     async getCourses({ page = 1, limit = 10 }) {
         try {
@@ -264,7 +231,6 @@ class PaymentService {
             const course = await this.courseRepository.findById(id);
             if (!course) throw new Error('Course not found');
 
-            // Delete from Stripe
             await this.stripe.products.del(course.stripe_product_id);
             await this.courseRepository.delete(id);
         } catch (error) {
@@ -272,15 +238,9 @@ class PaymentService {
         }
     }
 
-
-    ///////////////////////////
-    // Add these methods to the PaymentService class
-
     async getPaymentsByStatus(status) {
         try {
-            // Validate the status parameter
             this.validatePaymentStatus(status);
-
             return await this.paymentRepository.findByStatus(status);
         } catch (error) {
             throw new Error(`Get Payments by Status Error: ${error.message}`);
@@ -289,43 +249,24 @@ class PaymentService {
 
     async getPaymentsByStatusPaginated({ page = 1, limit = 10 }, status) {
         try {
-            // Validate pagination parameters
             this.validatePagination(page, limit);
-
-            // Validate the status parameter
             this.validatePaymentStatus(status);
-
             return await this.paymentRepository.findByStatusPaginated(page, limit, status);
         } catch (error) {
             throw new Error(`Get Paginated Payments by Status Error: ${error.message}`);
         }
     }
 
-    // Add this helper method to validate status
+    // -------------------
+    // Helpers
+    // -------------------
+
     validatePaymentStatus(status) {
         const validStatuses = ['succeeded', 'pending', 'failed', 'expired', 'created'];
         if (!validStatuses.includes(status)) {
             throw new Error(`Invalid payment status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
         }
     }
-
-    // Private methods
-    /*  async handleWebhookEvent(event) {
-          const handlers = {
-              'checkout.session.completed': async (session) => {
-                  await this.paymentRepository.updateStatus(session.id, 'succeeded');
-              },
-              'checkout.session.expired': async (session) => {
-                  await this.paymentRepository.updateStatus(session.id, 'expired');
-              },
-              'payment_intent.payment_failed': async (paymentIntent) => {
-                  await this.paymentRepository.updateStatus(paymentIntent.id, 'failed');
-              }
-          };
-  
-          const handler = handlers[event.type];
-          if (handler) await handler(event.data.object);
-      }*/
 
     validatePagination(page, limit) {
         if (page < 1 || limit < 1 || limit > 100) {
@@ -338,31 +279,19 @@ class PaymentService {
             if (!value) throw new Error(`${key} is required`);
         }
     }
+
     validateUrls({ success_url, cancel_url }) {
-
         try {
-
-            // Validate both URLs
-
             new URL(success_url);
-
             new URL(cancel_url);
-
-        } catch (error) {
-
+        } catch {
             throw new Error('Invalid URL format provided');
-
         }
-
     }
 
     sanitizeUrl(url) {
-
-        // Remove any dangerous characters or scripts
-
         return url.replace(/[<>'"]/g, '');
-
     }
 }
 
-module.exports = PaymentService;
+export default PaymentService;

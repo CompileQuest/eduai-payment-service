@@ -1,36 +1,35 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const { PaymentRouter } = require('./api/routes');
-const HandleErrors = require('./utils/error-handler')
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import apiRoutes from './api/routes/index.js';
+import HandleErrors from './utils/error-handler.js';
+import './config/stripeClient.js'
+import './infrastructure/messageQueue/fireAndForget/RabbitMQClient.js';
+// ESM replacement for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables based on NODE_ENV
 const envFile = process.env.NODE_ENV ? `.env.${process.env.NODE_ENV}` : '.env.dev';
 dotenv.config({ path: envFile });
 
-module.exports = async (app) => {
-
+const setupApp = async (app) => {
     app.use(express.json({ limit: '1mb' }));
     app.use(express.urlencoded({ extended: true, limit: '1mb' }));
     app.use(cors({
         origin: 'http://localhost:3000',
-        credentials: true, // if you're using cookies, sessions, or auth headers
+        credentials: true,
     }));
-    app.use(express.static(__dirname + '/public'))
 
-    // app.use((req,res,next)=>{
-    //     console.log(req);
-    //     next();
-    // })
-    // Listen to Events
-    // appEvent(app);
+    app.use(express.static(path.join(__dirname, 'public')));
 
+    // API routes
+    apiRoutes(app);
 
-
-    //api
-    PaymentRouter(app);
-
-    // error handling
+    // Error handling middleware
     app.use(HandleErrors);
+};
 
-}
+export default setupApp;

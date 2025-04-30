@@ -1,5 +1,4 @@
-const CourseModel = require('../models/Course');
-
+import CourseModel from '../models/Course.js';
 class CourseRepository {
     async create(courseData) {
         try {
@@ -60,4 +59,4 @@ class CourseRepository {
     }
 }
 
-module.exports = CourseRepository;
+export default CourseRepository;
