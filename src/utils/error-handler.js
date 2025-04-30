@@ -1,5 +1,5 @@
-const { AppError } = require('./app-errors');
-const chalk = require('chalk'); // For colored terminal output
+import { AppError } from './app-errors.js';
+import chalk from 'chalk'; // For colored terminal output
 
 class ErrorLogger {
     constructor() { }
@@ -18,7 +18,8 @@ class ErrorLogger {
 
         // Print the error in a clean, colorful format
         console.log(chalk.bgRed('🚨 [Error Logger] ===================='));
-        console.log(color(`📛 Error: ${err.name}`));
+        console.log(color(`📛 Error Name: ${err.name}`));
+        console.log(color(`📛 Error Description: ${err.description}`));
         console.log(color(`📛 status Code: ${err.statusCode}`));
         console.log(color(`📝 Message: ${err.message}`));
         console.log(color(`🔍 Stack: ${err.stack}`));
@@ -53,8 +54,10 @@ const ErrorHandler = async (err, req, res, next) => {
     if (err) {
         await errorLogger.logError(err);
         if (errorLogger.isTrustError(err)) {
-            // Trusted error: Send response to client
-            return res.status(err.statusCode).json({ message: err.description });
+            return res.status(err.statusCode).json({
+                success: false,
+                message: err.description // Message from the AppError instance
+            });
         } else {
             // Untrusted error: Exit process
             console.log(chalk.bgRed('🛑 Fatal error encountered. Shutting down...'));
@@ -65,4 +68,4 @@ const ErrorHandler = async (err, req, res, next) => {
     next();
 };
 
-module.exports = ErrorHandler;
+export default ErrorHandler;

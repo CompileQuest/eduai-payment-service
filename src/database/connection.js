@@ -1,19 +1,14 @@
-const mongoose = require('mongoose');
-const { DB_URL } = require('../config');
+import mongoose from 'mongoose';
+import { MONGODB_URI } from '../config/index.js';
 
-module.exports = async() => {
+const DatabaseConnection = async () => {
     try {
-        console.log("this is the db_url ", DB_URL);
-        await mongoose.connect(DB_URL, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true
-        });
-        console.log('Db Connected');
-        
+        await mongoose.connect(MONGODB_URI); // ← Clean, modern syntax
+        console.log('✅ Db Connected');
     } catch (error) {
-        console.log('Error ============');
-        console.log(error);
-        console.log("yah here is the error man");
+        console.log('❌ Error connecting to DB:', error);
         process.exit(1);
     }
 };
+
+export default DatabaseConnection;

@@ -1,17 +1,19 @@
 {
   "name": "payment-management-service",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "cross-env NODE_ENV=dev node scripts/dev.js",
+    "dev": "nodemon  src/index.js",
     "start": "cross-env NODE_ENV=prod node src/index.js",
     "tunnel": "lt --port 8000 --subdomain mywebhookeduai"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "amqplib": "^0.10.7",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

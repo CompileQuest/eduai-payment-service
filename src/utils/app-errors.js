@@ -141,7 +141,7 @@ class ServiceUnavailableError extends AppError {
   }
 }
 
-module.exports = {
+export {
   STATUS_CODES,
   AppError,
   APIError,

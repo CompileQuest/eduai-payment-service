@@ -1,6 +1,11 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const courseSchema = new mongoose.Schema({
+    course_id: {
+        type: String,
+        required: true,
+        unique: true,
+    },
     name: {
         type: String,
         required: true
@@ -8,23 +13,34 @@ const courseSchema = new mongoose.Schema({
     stripe_product_id: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
     },
     stripe_price_id: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+    },
+    currency: {
+        type: String,
+        default: 'usd',
     },
     price: {
         type: Number,
-        required: true
+        required: true,
     },
-    created_at: {
-        type: Date,
-        default: Date.now
+    active: {
+        type: Boolean,
+        default: true
+    },
+    thumbnail_url: {
+        type: String,
     }
+}, {
+    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });
+
+
 
 const Course = mongoose.model('Course', courseSchema);
 
-module.exports = Course; 
+export default Course;

@@ -1,5 +1,6 @@
-const mongoose = require('mongoose');
-const uuid = require('uuid');
+import mongoose from 'mongoose';
+import { v4 as uuidv4 } from 'uuid'; // Though `uuid` is imported, it's not used in the schema—remove if unused
+
 
 const paymentIntentSchema = new mongoose.Schema({
   payment_intent_id: {
@@ -28,12 +29,11 @@ const paymentIntentSchema = new mongoose.Schema({
     required: true,
     default: 'created',
   },
-  created_at: {
-    type: Date,
-    default: Date.now,
-  },
+}, {
+  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });
+
 
 const PaymentIntent = mongoose.model('PaymentIntent', paymentIntentSchema);
 
-module.exports = PaymentIntent;
+export default PaymentIntent;
