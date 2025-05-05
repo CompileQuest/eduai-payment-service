@@ -2,9 +2,9 @@
 // todo : unit testing for each layer 
 
 import express from 'express';
-import { PORT } from './config/index.js';
-import DatabaseConnection from './database/connection.js';
-import expressApp from './express-app.js';
+import { PORT } from './src/config/index.js';
+import DatabaseConnection from './src/database/connection.js';
+import expressApp from './src/express-app.js';
 
 
 const StartServer = async () => {

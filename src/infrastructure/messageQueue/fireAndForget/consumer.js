@@ -20,7 +20,7 @@ class Consumer {
                         if (parsedMessage) {
                             try {
                                 // Process the message using MessageHandler
-                                const result = await this.messageHandler.handleMessage(parsedMessage.type, parsedMessage.payload);
+                                const result = await this.messageHandler.handleMessage(parsedMessage);
 
                                 // If the message processed successfully, acknowledge it
                                 if (result && result.success) {

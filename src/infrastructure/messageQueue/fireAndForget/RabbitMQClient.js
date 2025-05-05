@@ -19,9 +19,9 @@ class RabbitMQClient {
 
         // Automatically initialize the connection when the class is instantiated
         this.initialize().then(() => {
-            console.log("✅ RabbitMQ client initialized automatically.");
+            console.log("RabbitMQ client initialized automatically.");
         }).catch((error) => {
-            console.error("❌ Failed to initialize RabbitMQ client:", error);
+            console.error("Failed to initialize RabbitMQ client:", error);
         });
 
         RabbitMQClient.instance = this;
@@ -67,18 +67,18 @@ class RabbitMQClient {
             this.consumer.consumeMessages();
 
             this.isInitialized = true;
-            console.log("✅ RabbitMQ client initialized successfully.");
+            console.log("RabbitMQ client initialized successfully.");
         } catch (error) {
-            console.error("❌ RabbitMQ error:", error);
+            console.error("RabbitMQ error:", error);
             throw error; // Re-throw the error to handle it outside
         }
     }
 
     async produce(routingKey, payload) {
         if (!this.isInitialized) {
-            throw new Error("❌ RabbitMQ client is not initialized.");
+            throw new Error("RabbitMQ client is not initialized.");
         }
-        const userCreatedMessage = new BrokerMessage(routingKey, payload);
+        const message = new BrokerMessage(routingKey, payload);
         return await this.producer.produceMessage(config.rabbitMQ.exchange, routingKey, message);
     }
 }
