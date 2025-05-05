@@ -42,18 +42,8 @@ router.post("/create-checkout-session", validateUrls, async (req, res, next) => 
     }
 });
 
-// Create Payment
-router.post("/create-payment", validateUrls, async (req, res, next) => {
-    try {
-        const data = req.body;
-        if (!data) throw new BadRequestError("Request body is missing");
 
-        const createdPayment = await service.createPayment(data);
-        res.status(200).json({ success: true, message: "Payment created", data: createdPayment });
-    } catch (error) {
-        next(error);
-    }
-});
+
 
 // Get all payments (non-paginated)
 router.get("/paymentsAll", async (req, res, next) => {

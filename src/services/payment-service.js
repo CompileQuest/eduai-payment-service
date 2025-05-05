@@ -2,7 +2,7 @@ import stripeClient from '../config/stripeClient.js'; // use preconfigured clien
 import PaymentRepository from '../database/repository/PaymentRepository.js';
 import CourseRepository from '../database/repository/CourseRepository.js';
 import { STRIPE_WEBHOOK_SECRET } from '../config/index.js';
-import { APIError, AppError, InternalServerError, UnauthorizedError, NotFoundError } from '../utils/app-errors.js';
+import { APIError, AppError, InternalServerError, UnauthorizedError, NotFoundError, ConflictError } from '../utils/app-errors.js';
 class PaymentService {
     constructor() {
         this.stripe = stripeClient; // use shared Stripe client
@@ -161,6 +161,13 @@ class PaymentService {
             throw new InternalServerError("Unexpected error during course creation", error.message);
         }
     }
+
+
+
+
+
+
+
 
     async getallPayments() {
         try {

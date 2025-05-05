@@ -1,5 +1,6 @@
 import PaymentService from "../../services/payment-service.js";
 import { RoutingKeys } from "./fireAndForget/settings/routingKeys.js";
+import { randomUUID } from 'crypto';
 
 class MessageHandler {
     constructor() {
@@ -7,7 +8,6 @@ class MessageHandler {
 
         // Bind handlers
         this.handleCourseCreated = this.handleCourseCreated.bind(this);
-        this.handleUserUpdated = this.handleUserUpdated.bind(this);
         this.handlePaymentCompleted = this.handlePaymentCompleted.bind(this);
         this.handleUnknownMessage = this.handleUnknownMessage.bind(this);
 
@@ -27,13 +27,30 @@ class MessageHandler {
 
     async handleCourseCreated(payload, type) {
         console.log(`📘 [${type}] Course Created Payload:`, payload);
-        return { success: true, message: `Handled ${type}` };
+
+        const { id, title, price, thumbnail_url } = payload;
+        const randomId = randomUUID(); // Generate a unique test ID
+
+        try {
+            const createdCourse = await this.paymentService.createCourse(randomId, title, price, thumbnail_url);
+
+            return {
+                success: true,
+                message: `Successfully handled ${type}`,
+                data: createdCourse,
+            };
+        } catch (error) {
+            console.error(`❌ Failed to handle ${type}:`, error);
+
+            return {
+                success: false,
+                message: `Failed to handle ${type}: ${error.message}`,
+            };
+        }
     }
 
-    async handleUserUpdated(payload, type) {
-        console.log(`👤 [${type}] User Updated:`, payload);
-        return { success: true, message: `Handled ${type}` };
-    }
+
+
 
     async handlePaymentCompleted(payload, type) {
         console.log(`💰 [${type}] Payment Completed:`, payload);
