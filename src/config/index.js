@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 
 
-console.log(`🌍 Loading env file`);
+
 dotenv.config();
 
 // Define required environment variables
@@ -14,6 +14,7 @@ const requiredEnvVars = {
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   RABBITMQ_URL: process.env.RABBITMQ_URL,
   SERVICE_NAME: process.env.SERVICE_NAME,
+  NODE_ENV: process.env.NODE_ENV
 };
 
 // Validate
@@ -36,5 +37,6 @@ export const {
   STRIPE_WEBHOOK_SECRET,
   STRIPE_SECRET_KEY,
   RABBITMQ_URL,
-  SERVICE_NAME
+  SERVICE_NAME,
+  NODE_ENV
 } = requiredEnvVars;
