@@ -4,6 +4,7 @@ import Consumer from './consumer.js';
 import Producer from './producer.js';
 import BrokerMessage from './settings/brokerMessage.js';
 import { SERVICE_NAME } from '../../../config/index.js';
+import logger from '../../../utils/logger.js';
 class RabbitMQClient {
     constructor() {
         if (RabbitMQClient.instance) {
@@ -19,9 +20,9 @@ class RabbitMQClient {
 
         // Automatically initialize the connection when the class is instantiated
         this.initialize().then(() => {
-            console.log("RabbitMQ client initialized automatically.");
+            logger.info("✅ RabbitMQ client initialized successfully.");
         }).catch((error) => {
-            console.error("Failed to initialize RabbitMQ client:", error);
+            logger.error("❌ Failed to initialize RabbitMQ client:", error);
         });
 
         RabbitMQClient.instance = this;
@@ -29,7 +30,7 @@ class RabbitMQClient {
 
     async initialize() {
         if (this.isInitialized) {
-            console.log("RabbitMQ client is already initialized.");
+            console.log("✅ RabbitMQ client is already initialized.");
             return;
         }
 
@@ -67,16 +68,16 @@ class RabbitMQClient {
             this.consumer.consumeMessages();
 
             this.isInitialized = true;
-            console.log("RabbitMQ client initialized successfully.");
+            // console.log("✅ RabbitMQ client initialized successfully.");
         } catch (error) {
-            console.error("RabbitMQ error:", error);
+            logger.error("❌ RabbitMQ error:", error);
             throw error; // Re-throw the error to handle it outside
         }
     }
 
     async produce(routingKey, payload) {
         if (!this.isInitialized) {
-            throw new Error("RabbitMQ client is not initialized.");
+            throw new Error("✅ RabbitMQ client is not initialized.");
         }
         const message = new BrokerMessage(routingKey, payload);
         return await this.producer.produceMessage(config.rabbitMQ.exchange, routingKey, message);
