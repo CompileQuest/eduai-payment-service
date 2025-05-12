@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import cookieParser from 'cookie-parser';
+
 import apiRoutes from './api/routes/index.js';
 import HandleErrors from './utils/error-handler.js';
 import './config/stripeClient.js'
@@ -22,6 +24,7 @@ const setupApp = async (app) => {
         origin: 'http://localhost:3000',
         credentials: true,
     }));
+    app.use(cookieParser());
 
     app.use(express.static(path.join(__dirname, 'public')));
 

@@ -2,26 +2,12 @@ import express from "express";
 import PaymentService from "../../../services/payment-service.js";
 import validateUrls from "../../../middlewares/url-validator.js";
 import { APIError, AppError, BadRequestError } from "../../../utils/app-errors.js";
-
+import { checkAuth, checkRole, getUserId, getCurrentRole } from "../../../middlewares/auth/authHelper.js";
+import ROLES from "../../../config/roles.js";
 const router = express.Router();
 const service = new PaymentService();
 
-// Stripe Webhook route
-router.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
-    const sig = req.headers["stripe-signature"];
-    let event;
 
-    try {
-        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_ENDPOINT_SECRET);
-        console.log("✅ Webhook Event:", event);
-    } catch (err) {
-        console.log("⚠️ Webhook verification failed, parsing raw payload");
-        event = typeof req.body === "object" ? req.body : JSON.parse(req.body.toString("utf8"));
-    }
-
-    await service.handleWebhookEvent(event);
-    res.json({ received: true });
-});
 
 
 router.get("/hello", async (req, res) => {
@@ -30,18 +16,32 @@ router.get("/hello", async (req, res) => {
 
 
 // Create Checkout Session
-router.post("/create-checkout-session", validateUrls, async (req, res, next) => {
+router.post("/create-checkout-session", validateUrls, checkAuth, checkRole([ROLES.STUDENT]), async (req, res, next) => {
     try {
-        const data = req.body;
-        if (!data) throw new BadRequestError("Request body is missing");
 
-        const session = await service.createCheckoutSession(data);
+        const userId = getUserId(req.auth);
+        const { courseIds, success_url, cancel_url } = req.body;
+        if (!courseIds || !success_url || !cancel_url) {
+            throw new BadRequestError("Some fields are missing here !!");
+        }
+        const session = await service.createCheckoutSession(userId, courseIds, success_url, cancel_url);
         res.status(200).json({ success: true, message: "Checkout session created", data: session.url });
     } catch (error) {
         next(error);
     }
 });
 
+
+
+
+router.delete("/delete-all-products", async (req, res, next) => {
+    try {
+        const result = await service.deleteAllStripeProducts();
+        res.status(200).json({ success: result.success, message: result.message, data: [result.productsDeleted, result.pricesDeleted] });
+    } catch (error) {
+        next(error);
+    }
+});
 
 
 

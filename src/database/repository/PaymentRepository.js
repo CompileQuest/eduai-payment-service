@@ -25,6 +25,17 @@ class PaymentRepository {
         // Save and return the created course
         return await course.save();
     }
+
+
+
+    async findCoursesByIds(courseIds) {
+        // Find all courses where course_id is in the provided array
+        const courses = await CousreModel.find({
+            course_id: { $in: courseIds }
+        });
+
+        return courses;
+    }
     async findAllpaymento() {
         try {
             return await PaymentModel.find().sort({ created_at: -1 });
@@ -92,23 +103,41 @@ class PaymentRepository {
     }
 
 
-    async createPaymentIntent({ payment_intent_id, user_id, course_id, amount, currency, status }) {
-        try {
-            const paymentIntent = new PaymentIntentModel({
-                payment_intent_id,
-                user_id,
-                course_id,
-                amount,
-                currency,
-                status
-            });
+    async createPaymentIntent({ session_id, user_id, course_ids, amount, currency, status }) {
 
-            return await paymentIntent.save();
-        } catch (error) {
-            throw new Error(`Failed to create payment intent: ${error.message}`);
-        }
+        // Create a new PaymentIntent document
+        const paymentIntent = new PaymentIntentModel({
+            session_id,       // Stripe checkout session ID
+            user_id,          // The user making the payment
+            course_ids,       // Array of course IDs
+            amount,           // Total amount for the payment
+            currency,         // Currency for the payment (defaulted to 'usd' if not provided)
+            status,           // Payment status (e.g., 'created', 'completed')
+        });
+
+        // Save and return the new PaymentIntent document
+        return await paymentIntent.save();
     }
 
+
+
+    async findPaymentIntentBySessionId(sessionId) {
+        // Find the PaymentIntent document by session_id
+        const paymentIntent = await PaymentIntentModel.findOne({ session_id: sessionId });
+        return paymentIntent;
+    }
+
+
+
+    async updatePaymentIntent(sessionId, updatedPaymentIntent) {
+        // Update the PaymentIntent document in the database
+        const updatedIntent = await PaymentIntentModel.findOneAndUpdate(
+            { session_id: sessionId }, // Find the document by session_id
+            updatedPaymentIntent, // Fields to update
+            { new: true } // Return the updated document
+        );
+        return updatedIntent;
+    }
     async findByCourseId(courseId) {
         // Search for a course in the database using the course_id
         const course = await CousreModel.findOne({ course_id: courseId });

@@ -17,11 +17,13 @@ const RoutingKeys = {
     COURSE_ALL_EVENTS: "course.#",
 
     // Payment-related events
-    PAYMENT_COMPLETED: "payment.completed",
-    PAYMENT_FAILED: "payment.failed",
-    PAYMENT_REFUNDED: "payment.refunded",
-    PAYMENT_INVOICE_GENERATED: "payment.invoice.generated",
-    PAYMENT_ALL_EVENTS: "payment.#",  // Matches any payment-related event
+    // Payment-related events
+    PAYMENT_SESSION_COMPLETED: 'checkout.session.completed',
+    PAYMENT_INTENT_SUCCESS: 'payment.intent.success',
+    PAYMENT_FAILED: 'payment.intent.failed',
+    PAYMENT_SESSION_EXPIRED: 'payment.session.expired',
+    STRIPE_UNKNOWN_EVENT: 'stripe.unknown',
+
 
     // Notification-related events
     NOTIFICATION_SENT: "notification.sent",

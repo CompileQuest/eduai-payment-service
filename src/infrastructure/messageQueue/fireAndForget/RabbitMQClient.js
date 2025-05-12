@@ -41,7 +41,10 @@ class RabbitMQClient {
 
             // Assert the current service's exchange and queue
             await this.consumerChannel.assertExchange(config.rabbitMQ.exchange, 'topic', { durable: true });
+            console.log(`✅ Asserted exchange: ${config.rabbitMQ.exchange}`);
+
             await this.consumerChannel.assertQueue(config.rabbitMQ.queue, { durable: true });
+            console.log(`✅ Asserted queue: ${config.rabbitMQ.queue}`);
 
             // Collect all unique exchanges from bindings
             const exchanges = new Set();
@@ -52,12 +55,14 @@ class RabbitMQClient {
             // Assert all exchanges
             for (const exchange of exchanges) {
                 await this.consumerChannel.assertExchange(exchange, 'topic', { durable: true });
+                console.log(`✅ Asserted exchange: ${exchange}`);
             }
 
             // Bind the queue to the exchanges with the specified routing keys
             for (const binding of config.rabbitMQ.bindings) {
                 for (const routingKey of binding.routingKeys) {
                     await this.consumerChannel.bindQueue(config.rabbitMQ.queue, binding.exchange, routingKey);
+                    console.log(`✅ Bound queue: ${config.rabbitMQ.queue} to exchange: ${binding.exchange} with routing key: ${routingKey}`);
                 }
             }
 
@@ -68,7 +73,6 @@ class RabbitMQClient {
             this.consumer.consumeMessages();
 
             this.isInitialized = true;
-            // console.log("✅ RabbitMQ client initialized successfully.");
         } catch (error) {
             logger.error("❌ RabbitMQ error:", error);
             throw error; // Re-throw the error to handle it outside
