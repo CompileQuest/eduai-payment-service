@@ -1,9 +1,8 @@
-import { expressjwt as jwt } from "express-jwt";
-import jwksRsa from "jwks-rsa";
-import { UnauthorizedError, ForbiddenError, BadRequestError } from "../../utils/app-errors.js"; // Import custom error classes
+import { ForbiddenError, UnauthorizedError } from '../../utils/app-errors.js';
+import { expressjwt as jwt } from 'express-jwt';
+import jwksRsa from 'jwks-rsa';
 
-
-const mock = true;
+const mock = false;
 const checkRole = (requiredRoles = []) => {
     return (req, res, next) => {
         if (mock) {
@@ -30,24 +29,29 @@ const checkRole = (requiredRoles = []) => {
 
 // Function to extract JWT from request
 const getTokenFromRequest = (req) => {
+
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
-        //   console.log("Authorization Header Token:", authHeader);
+        console.log("Authorization Header Token:", authHeader);
         return authHeader.split(" ")[1];
     }
 
     if (req.cookies?.sAccessToken) {
-        // console.log("Token from Cookies:", req.cookies.sAccessToken);
+        console.log("Token from Cookies:", req.cookies.sAccessToken);
         return req.cookies.sAccessToken;
     }
 
+
+    console.log("there is no token found !! ");
     return null;
 };
 
 
 const checkAuth = (req, res, next) => {
     if (mock) {
+        console.log("Mock authentication enabled");
         return next(); // Make sure to return to avoid further execution
+        console.log("Mock authentication enabled");
     }
 
     jwt({
@@ -74,6 +78,7 @@ const checkAuth = (req, res, next) => {
             if (err.code === "permission_denied") {
                 return next(new ForbiddenError("You do not have permission to access this resource"));
             }
+            console.log("this is the error", err);
             return next(new UnauthorizedError("Authentication failed"));
         }
         // If no error, continue to the next middleware or route handler
@@ -82,10 +87,18 @@ const checkAuth = (req, res, next) => {
 };
 
 
-const getUserId = (auth) => {
-    if (mock) {
-        return 'asdfa2342fasrq23fwe234fasd';
+
+const getUserId = (auth, Role) => {
+
+
+    if (mock && Role === 'STUDENT') {
+        return 'c1243e05-49f2-4931-9d73-f77a049a5935';
     }
+
+    if (mock && Role === 'INSTRUCTOR') {
+        return 'c1243e05-49f2-4931-9d73-f77a049a5935';
+    }
+
     if (!auth || !auth.sub) {
         console.warn("Missing user ID in authentication data");
         return null;
@@ -104,7 +117,8 @@ const getCurrentRole = (auth) => {
     }
 
     //return auth.sub; // `sub` contains the user ID
-    return auth.role;
+    const userRole = auth["st-role"]?.v || [];
+    return userRole[0];
 }
 
-export { checkRole, getUserId, getCurrentRole, checkAuth };
+export { checkRole, getUserId, getCurrentRole, checkAuth, getTokenFromRequest };

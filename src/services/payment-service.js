@@ -2,7 +2,7 @@ import stripeClient from '../config/stripeClient.js'; // use preconfigured clien
 import PaymentRepository from '../database/repository/PaymentRepository.js';
 import CourseRepository from '../database/repository/CourseRepository.js';
 import { STRIPE_WEBHOOK_SECRET } from '../config/index.js';
-import { APIError, AppError, InternalServerError, UnauthorizedError, NotFoundError, ConflictError } from '../utils/app-errors.js';
+import { APIError, AppError, InternalServerError, UnauthorizedError, NotFoundError, ConflictError, BadRequestError } from '../utils/app-errors.js';
 class PaymentService {
     constructor() {
         this.stripe = stripeClient; // use shared Stripe client
@@ -50,48 +50,118 @@ class PaymentService {
         }
     }
 
-    async createCheckoutSession({ userId, courseId, success_url, cancel_url }) {
+    // async createCheckoutSession({ userId, courseId, success_url, cancel_url }) {
+    //     try {
+    //         // Validate required fields
+    //         this.validateRequiredFields({ userId, courseId, success_url, cancel_url });
+    //         this.validateUrls({ success_url, cancel_url });
+
+    //         // Fetch course by courseId
+    //         const course = await this.paymentRepository.findByCourseId(courseId);
+    //         if (!course) {
+    //             throw new NotFoundError("Course not found", `Course ID: ${courseId} does not exist`);
+    //         }
+
+    //         if (!course.stripe_price_id) {
+    //             throw new BadRequestError("Course price not configured", "Missing stripe_price_id on course");
+    //         }
+
+    //         // Create Stripe checkout session
+    //         const session = await this.stripe.checkout.sessions.create({
+    //             payment_method_types: ['card'],
+    //             line_items: [
+    //                 {
+    //                     price: course.stripe_price_id,
+    //                     quantity: 1
+    //                 }
+    //             ],
+    //             mode: 'payment',
+    //             success_url: `${success_url}?session_id={CHECKOUT_SESSION_ID}`,
+    //             cancel_url,
+    //             metadata: {
+    //                 userId,
+    //                 courseId
+    //             }
+    //         });
+
+    //         // Persist payment intent to DB
+    //         await this.paymentRepository.createPaymentIntent({
+    //             payment_intent_id: session.id,
+    //             user_id: userId,
+    //             course_id: courseId,
+    //             amount: session.amount_total ? session.amount_total / 100 : course.price,
+    //             currency: session.currency || course.currency || 'usd',
+    //             status: session.payment_status || 'created'
+    //         });
+
+    //         return session;
+
+    //     } catch (error) {
+    //         if (error instanceof AppError) {
+    //             throw error;
+    //         }
+    //         throw new InternalServerError("Failed to create checkout session", error.message);
+    //     }
+    // }
+
+
+    async createCheckoutSession(userId, courseIds, success_url, cancel_url) {
         try {
             // Validate required fields
-            this.validateRequiredFields({ userId, courseId, success_url, cancel_url });
+            this.validateRequiredFields({ userId, courseIds, success_url, cancel_url });
             this.validateUrls({ success_url, cancel_url });
 
-            // Fetch course by courseId
-            const course = await this.paymentRepository.findByCourseId(courseId);
-            if (!course) {
-                throw new NotFoundError("Course not found", `Course ID: ${courseId} does not exist`);
+            // Ensure courseIds is an array
+            if (!Array.isArray(courseIds) || courseIds.length === 0) {
+                throw new BadRequestError("Invalid course IDs", "courseIds must be a non-empty array");
             }
 
-            if (!course.stripe_price_id) {
-                throw new BadRequestError("Course price not configured", "Missing stripe_price_id on course");
+            // Fetch all courses by their IDs
+            const courses = await this.paymentRepository.findCoursesByIds(courseIds);
+
+            // Check if all courses were found
+            if (courses.length !== courseIds.length) {
+                const foundIds = courses.map(c => c.id);
+                const missingIds = courseIds.filter(id => !foundIds.includes(id));
+                throw new NotFoundError("Some courses not found", `Course IDs not found: ${missingIds.join(', ')}`);
             }
+
+            // Check all courses have stripe_price_id
+            const coursesWithoutPrice = courses.filter(c => !c.stripe_price_id);
+            if (coursesWithoutPrice.length > 0) {
+                throw new BadRequestError(
+                    "Course prices not configured",
+                    `Missing stripe_price_id on courses: ${coursesWithoutPrice.map(c => c.id).join(', ')}`
+                );
+            }
+
+            // Prepare line items for all courses
+            const line_items = courses.map(course => ({
+                price: course.stripe_price_id,
+                quantity: 1
+            }));
 
             // Create Stripe checkout session
             const session = await this.stripe.checkout.sessions.create({
                 payment_method_types: ['card'],
-                line_items: [
-                    {
-                        price: course.stripe_price_id,
-                        quantity: 1
-                    }
-                ],
+                line_items,
                 mode: 'payment',
                 success_url: `${success_url}?session_id={CHECKOUT_SESSION_ID}`,
                 cancel_url,
                 metadata: {
                     userId,
-                    courseId
+                    courseIds: JSON.stringify(courseIds) // Store all course IDs as stringified JSON
                 }
             });
 
-            // Persist payment intent to DB
+            // Store a single PaymentIntent record for all courses with the same session_id
             await this.paymentRepository.createPaymentIntent({
-                payment_intent_id: session.id,
+                session_id: session.id, // Store the session ID
                 user_id: userId,
-                course_id: courseId,
-                amount: session.amount_total ? session.amount_total / 100 : course.price,
-                currency: session.currency || course.currency || 'usd',
-                status: session.payment_status || 'created'
+                course_ids: courseIds, // Store an array of course IDs
+                amount: session.amount_total ? session.amount_total / 100 : courses.reduce((acc, course) => acc + course.price, 0),
+                currency: session.currency || 'usd',
+                status: 'created',
             });
 
             return session;
@@ -105,6 +175,48 @@ class PaymentService {
     }
 
 
+
+    async completePaymentIntent(payload) {
+        try {
+            // Extract data from the event
+            const sessionId = payload.id;
+            const paymentIntent = await this.paymentRepository.findPaymentIntentBySessionId(sessionId);
+            if (!paymentIntent) {
+                throw new BadRequestError("NO payment foudn here ");
+            }
+
+
+            if (payload.payment_status === 'paid') {
+                try {
+                    // Extract necessary fields from the session object
+                    const { payment_intent, customer_email, customer_details, metadata } = payload;
+
+                    // Prepare fields for updating PaymentIntent
+                    const updatedPaymentIntent = {
+                        payment_intent_id: payment_intent,
+                        status: 'completed', // Mark the payment intent as completed
+                        payment_date: new Date(), // Set the payment date to now
+                        payment_method_type: payload.payment_method_types[0], // Use the first payment method type (e.g., 'card')
+                        customer_email: customer_email || customer_details.email, // Customer email, fall back to details.email
+                        customer_name: customer_details.name || null, // Customer name
+                        payment_metadata: JSON.parse(metadata.courseIds), // Store course IDs from metadata
+                    };
+
+                    const updatedPaymentIntentResult = await this.paymentRepository.updatePaymentIntent(sessionId, updatedPaymentIntent);
+                    console.log("this is after the update ", updatedPaymentIntentResult)
+                    return updatedIntent;
+                } catch (error) {
+
+                }
+            }
+
+        } catch (error) {
+            throw new Error(`Failed to complete payment intent: ${error.message}`);
+        }
+    }
+
+
+
     async createCourse(courseId, name, price, thumbnail_url) {
         let stripe_product_id = null;
         let stripe_price_id = null;
@@ -116,17 +228,20 @@ class PaymentService {
                 throw new ConflictError("Course with this ID already exists.");
             }
 
-            // 1. Create Stripe product
+            // 1. Create Stripe product with metadata
             const product = await this.stripe.products.create({
                 name,
-                images: thumbnail_url ? [thumbnail_url] : []
-            }); stripe_product_id = product.id;
+                images: thumbnail_url ? [thumbnail_url] : [],
+                metadata: { course_id: courseId }  // Store courseId in metadata
+            });
+            stripe_product_id = product.id;
 
-            // 2. Create Stripe price
+            // 2. Create Stripe price with metadata
             const stripePrice = await this.stripe.prices.create({
                 product: stripe_product_id,
-                unit_amount: price * 100,
+                unit_amount: Math.round(price * 100),  // Ensure price is rounded to an integer
                 currency: 'usd',
+                metadata: { course_id: courseId }  // Store courseId in metadata
             });
             stripe_price_id = stripePrice.id;
 
@@ -169,6 +284,8 @@ class PaymentService {
 
 
 
+
+
     async getallPayments() {
         try {
             return await this.paymentRepository.findAllpaymento();
@@ -203,6 +320,75 @@ class PaymentService {
     }
 
 
+    async deleteAllStripeProducts() {
+        try {
+            let productsDeleted = 0;
+            let pricesDeactivated = 0;
+            let hasMore = true;
+            let lastProductId = null;
+
+            while (hasMore) {
+                const params = { limit: 100 };
+                if (lastProductId) params.starting_after = lastProductId;
+
+                const products = await this.stripe.products.list(params);
+
+                for (const product of products.data) {
+                    try {
+                        // 1. First deactivate all prices for this product
+                        let hasMorePrices = true;
+                        let lastPriceId = null;
+
+                        while (hasMorePrices) {
+                            const priceParams = {
+                                product: product.id,
+                                limit: 100
+                            };
+                            if (lastPriceId) priceParams.starting_after = lastPriceId;
+
+                            const prices = await this.stripe.prices.list(priceParams);
+
+                            for (const price of prices.data) {
+                                await this.stripe.prices.update(price.id, { active: false });
+                                pricesDeactivated++;
+                            }
+
+                            hasMorePrices = prices.has_more;
+                            if (hasMorePrices) lastPriceId = prices.data[prices.data.length - 1].id;
+                        }
+
+                        // 2. Now delete the product
+                        await this.stripe.products.del(product.id);
+                        productsDeleted++;
+
+                        lastProductId = product.id;
+                    } catch (error) {
+                        console.error(`Error processing product ${product.id}:`, error.message);
+                        // Continue to next product even if one fails
+                        continue;
+                    }
+                }
+
+                hasMore = products.has_more;
+            }
+
+            return {
+                success: true,
+                message: `Successfully deleted ${productsDeleted} products and deactivated ${pricesDeactivated} prices`,
+                stats: {
+                    productsDeleted,
+                    pricesDeactivated
+                }
+            };
+
+        } catch (error) {
+            console.error('Fatal error in deleteAllStripeProducts:', error);
+            throw new InternalServerError(
+                "Failed to complete product deletion",
+                error.message
+            );
+        }
+    }
 
     async getCourses({ page = 1, limit = 10 }) {
         try {
